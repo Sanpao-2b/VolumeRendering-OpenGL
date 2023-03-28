@@ -147,20 +147,20 @@ GLboolean compileCheck(GLuint shader)
 {
     GLint err;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &err);
-    if (GL_FALSE == err)
-    {
+    if (err) {
+        return GL_TRUE;
+    }
+
 	GLint logLen;
 	glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLen);
 	if (logLen > 0)
 	{
-	    char* log = (char *)malloc(logLen);
+        std::vector<char>log(logLen);
 	    GLsizei written;
-	    glGetShaderInfoLog(shader, logLen, &written, log);
-	    cerr << "Shader log: " << log << endl;
-	    free(log);		
+	    glGetShaderInfoLog(shader, logLen, &written, log.data());
+	    cerr << "Shader log: " << log.data() << endl;	
 	}
-    }
-    return err;
+    return GL_FALSE;
 }
 // init shader object
 GLuint initShaderObj(const GLchar* srcfile, GLenum shaderType)
@@ -311,8 +311,8 @@ void checkFramebufferStatus()
     GLenum complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (complete != GL_FRAMEBUFFER_COMPLETE)
     {
-	cout << "framebuffer is not complete" << endl;
-	exit(EXIT_FAILURE);
+	    cout << "framebuffer is not complete" << endl;
+	    exit(EXIT_FAILURE);
     }
 }
 // init the framebuffer, the only framebuffer used in this program
@@ -342,71 +342,57 @@ void rcSetUinforms()
     // ExitPoints i.e. the backface, the backface hold the ExitPoints of ray casting
     // VolumeTex the texture that hold the volume data i.e. head256.raw
     GLint screenSizeLoc = glGetUniformLocation(g_programHandle, "ScreenSize");
-    if (screenSizeLoc >= 0)
-    {
-	glUniform2f(screenSizeLoc, (float)g_winWidth, (float)g_winHeight);
+    if (screenSizeLoc >= 0){
+	    glUniform2f(screenSizeLoc, (float)g_winWidth, (float)g_winHeight);
     }
-    else
-    {
-	cout << "ScreenSize"
-	     << "is not bind to the uniform"
-	     << endl;
+    else{
+	    cout << "ScreenSize " << "is not bind to the uniform" << endl;
     }
+
     GLint stepSizeLoc = glGetUniformLocation(g_programHandle, "StepSize");
     GL_ERROR();
-    if (stepSizeLoc >= 0)
-    {
-	glUniform1f(stepSizeLoc, g_stepSize);
+    if (stepSizeLoc >= 0){
+	    glUniform1f(stepSizeLoc, g_stepSize);
     }
-    else
-    {
-	cout << "StepSize"
-	     << "is not bind to the uniform"
-	     << endl;
+    else{
+	    cout << "StepSize " << "is not bind to the uniform" << endl;
     }
     GL_ERROR();
-    GLint transferFuncLoc = glGetUniformLocation(g_programHandle, "TransferFunc");
-    if (transferFuncLoc >= 0)
-    {
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_1D, g_tffTexObj);
-	glUniform1i(transferFuncLoc, 0);
-    }
-    else
-    {
-	cout << "TransferFunc"
-	     << "is not bind to the uniform"
-	     << endl;
-    }
-    GL_ERROR();    
-    GLint backFaceLoc = glGetUniformLocation(g_programHandle, "ExitPoints");
-    if (backFaceLoc >= 0)
-    {
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, g_bfTexObj);
-	glUniform1i(backFaceLoc, 1);
-    }
-    else
-    {
-	cout << "ExitPoints"
-	     << "is not bind to the uniform"
-	     << endl;
-    }
-    GL_ERROR();    
-    GLint volumeLoc = glGetUniformLocation(g_programHandle, "VolumeTex");
-    if (volumeLoc >= 0)
-    {
-	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_3D, g_volTexObj);
-	glUniform1i(volumeLoc, 2);
-    }
-    else
-    {
-	cout << "VolumeTex"
-	     << "is not bind to the uniform"
-	     << endl;
-    }
     
+    // 转换函数 1D texture
+    GLint transferFuncLoc = glGetUniformLocation(g_programHandle, "TransferFunc");
+    if (transferFuncLoc >= 0){
+	    glUniform1i(transferFuncLoc, 0);            // 设置iniform sampler采样纹理单元0
+	    glActiveTexture(GL_TEXTURE0);               // 激活纹理单元0
+	    glBindTexture(GL_TEXTURE_1D, g_tffTexObj);  // 绑定纹理到纹理单元0
+    }
+    else{
+	    cout << "TransferFunc " << "is not bind to the uniform" << endl;
+    }
+    GL_ERROR();    
+    
+    // 背面（作为出口点） 2D texture 
+    GLint backFaceLoc = glGetUniformLocation(g_programHandle, "ExitPoints");
+    if (backFaceLoc >= 0){
+	    glUniform1i(backFaceLoc, 1);
+	    glActiveTexture(GL_TEXTURE1);
+	    glBindTexture(GL_TEXTURE_2D, g_bfTexObj);
+    }
+    else{
+	    cout << "ExitPoints " << "is not bind to the uniform" << endl;
+    }
+    GL_ERROR();
+
+    // 体数据 3D texture
+    GLint volumeLoc = glGetUniformLocation(g_programHandle, "VolumeTex");
+    if (volumeLoc >= 0){
+	    glUniform1i(volumeLoc, 2);
+	    glActiveTexture(GL_TEXTURE2);
+	    glBindTexture(GL_TEXTURE_3D, g_volTexObj);
+    }
+    else{
+	    cout << "VolumeTex " << "is not bind to the uniform" << endl;
+    }
 }
 // init the shader object and shader program
 void initShader()
