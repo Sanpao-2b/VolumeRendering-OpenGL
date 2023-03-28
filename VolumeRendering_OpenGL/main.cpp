@@ -165,26 +165,19 @@ GLboolean compileCheck(GLuint shader)
 // init shader object
 GLuint initShaderObj(const GLchar* srcfile, GLenum shaderType)
 {
-    ifstream inFile(srcfile, ifstream::in);
-    // use assert?
-    if (!inFile){
+    ifstream ifs(srcfile, ifstream::in | ifstream::ate);
+    if (!ifs.is_open()){
 	    cerr << "Error openning file: " << srcfile << endl;
 	    exit(EXIT_FAILURE);
     }
-    
-    const int MAX_CNT = 10000;
-    GLchar *shaderCode = (GLchar *) calloc(MAX_CNT, sizeof(GLchar));
-    
-    inFile.read(shaderCode, MAX_CNT);
-    if (inFile.eof()){  
-		size_t bytecnt = inFile.gcount();
-		*(shaderCode + bytecnt) = '\0';
-	}
-	else if (inFile.fail()) {
-	    cout << srcfile << "read failed " << endl;
-    }
-    else{
-	    cout << srcfile << "is too large" << endl;
+
+    std::vector<char> shaderCode(ifs.tellg());
+    ifs.seekg(0);
+   
+    ifs.read(shaderCode.data(), shaderCode.size());
+    if (ifs.eof()) {
+        size_t bytecnt = ifs.gcount();
+        *(shaderCode.data() + bytecnt) = '\0';
     }
 
     // create the shader Object
@@ -192,16 +185,13 @@ GLuint initShaderObj(const GLchar* srcfile, GLenum shaderType)
     if (0 == shader){
 	    cerr << "Error creating vertex shader." << endl;
     }
-    //cout << shaderCode << endl;
-    //cout << endl;
-    const GLchar* codeArray[] = {shaderCode};
+
+    const GLchar* codeArray[] = {shaderCode.data()};
     glShaderSource(shader, 1, codeArray, NULL);
-    free(shaderCode);
 
     // compile the shader
     glCompileShader(shader);
-    if (GL_FALSE == compileCheck(shader))
-    {
+    if (GL_FALSE == compileCheck(shader)){
 	    cerr << "shader compilation failed" << endl;
     }
 	    
