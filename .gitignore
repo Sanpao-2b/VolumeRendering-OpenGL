@@ -1,1 +1,3 @@
-head256.raw
+bin/
+bin-int/
+.vs/

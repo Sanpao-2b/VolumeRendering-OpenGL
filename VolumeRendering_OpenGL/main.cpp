@@ -10,7 +10,7 @@
 #include <GL/glm/gtc/matrix_transform.hpp>
 #include <GL/glm/gtx/transform2.hpp>
 #include <GL/glm/gtc/type_ptr.hpp>
-
+#include <vector>
 
 #define GL_ERROR() checkForOpenGLError(__FILE__, __LINE__)
 using namespace std;
@@ -243,30 +243,20 @@ GLuint createShaderPgm()
 GLuint initTFF1DTex(const char* filename)
 {
     // read in the user defined data of transfer function
-    ifstream inFile(filename, ifstream::in);
-        if (!inFile)
-    {
-	cerr << "Error openning file: " << filename << endl;
-	exit(EXIT_FAILURE);
+    ifstream ifs(filename, ifstream::in | ifstream::ate | ifstream::binary);
+    if (!ifs.is_open()) {
+        cerr << "Error openning file: " << filename << endl;
+        exit(EXIT_FAILURE);
     }
     
-    const int MAX_CNT = 10000;
-    GLubyte *tff = (GLubyte *) calloc(MAX_CNT, sizeof(GLubyte));
-    inFile.read(reinterpret_cast<char *>(tff), MAX_CNT);
-    if (inFile.eof())
-    {
-	size_t bytecnt = inFile.gcount();
-	*(tff + bytecnt) = '\0';
-	cout << "bytecnt " << bytecnt << endl;
+    std::vector<char> tff(ifs.tellg());
+    ifs.seekg(0, ios::beg);
+
+    ifs.read((char*)tff.data(), tff.size());
+    if (ifs.fail()){ 
+        cout << filename << "read failed " << endl; 
     }
-    else if(inFile.fail())
-    {
-	cout << filename << "read failed " << endl;
-    }
-    else
-    {
-	cout << filename << "is too large" << endl;
-    }    
+ 
     GLuint tff1DTex;
     glGenTextures(1, &tff1DTex);
     glBindTexture(GL_TEXTURE_1D, tff1DTex);
@@ -274,8 +264,8 @@ GLuint initTFF1DTex(const char* filename)
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA8, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, tff);
-    free(tff);    
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA8, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, tff.data());
+
     return tff1DTex;
 }
 // init the 2D texture for render backface 'bf' stands for backface
