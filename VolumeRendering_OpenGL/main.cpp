@@ -211,17 +211,14 @@ GLint checkShaderLinkStatus(GLuint pgmHandle)
 {
     GLint status;
     glGetProgramiv(pgmHandle, GL_LINK_STATUS, &status);
-    if (GL_FALSE == status)
-    {
 	GLint logLen;
 	glGetProgramiv(pgmHandle, GL_INFO_LOG_LENGTH, &logLen);
-	if (logLen > 0)
-	{
-	    GLchar * log = (GLchar *)malloc(logLen);
-	    GLsizei written;
-	    glGetProgramInfoLog(pgmHandle, logLen, &written, log);
-	    cerr << "Program log: " << log << endl;
-	}
+    if (status == GL_FALSE && logLen > 0)
+    {
+        std::vector<char>log(logLen);
+	    int written;
+	    glGetProgramInfoLog(pgmHandle, logLen, &written, log.data());
+	    cerr << "Program log: " << log.data() << endl;
     }
     return status;
 }
@@ -230,10 +227,10 @@ GLuint createShaderPgm()
 {
     // Create the shader program
     GLuint programHandle = glCreateProgram();
-    if (0 == programHandle)
+    if (!programHandle)
     {
-	cerr << "Error create shader program" << endl;
-	exit(EXIT_FAILURE);
+	    cerr << "Error create shader program" << endl;
+	    exit(EXIT_FAILURE);
     }
     return programHandle;
 }
@@ -284,29 +281,23 @@ GLuint initFace2DTex(GLuint bfTexWidth, GLuint bfTexHeight)
 // init 3D texture to store the volume data used fo ray casting
 GLuint initVol3DTex(const char* filename, GLuint w, GLuint h, GLuint d)
 {
-    
-    FILE *fp;
-    size_t size = w * h * d;
-    GLubyte *data = new GLubyte[size];			  // 8bit
-    if (fopen_s(&fp, filename, "rb") != 0)
-    {
-        cout << "Error: opening .raw file failed" << endl;
+    std::ifstream ifs(filename, ios::in | ios::ate | ios::binary);
+    if (!ifs.is_open()){
+        std::cerr << "Failed to open file :" << filename << std::endl;
         exit(EXIT_FAILURE);
     }
-    else
-    {
-        cout << "OK: open .raw file successed" << endl;
+    size_t size = ifs.tellg();
+    if (size != w * h * d){
+        std::cerr << "File size is not equal to w * h * d" << std::endl;
     }
-    if ( fread(data, sizeof(GLubyte), size, fp)!= size)
-    {
-        cout << "Error: read .raw file failed" << endl;
-        exit(1);
+    std::vector<GLubyte> volumeData(size);
+    ifs.seekg(0);
+
+    ifs.read((char*)volumeData.data(), volumeData.size());
+    if (ifs.fail()) {
+        std::cerr << "Failed to read .raw file :" << filename << std::endl;
     }
-    else
-    {
-        cout << "OK: read .raw file successed" << endl;
-    }
-    fclose(fp);
+    ifs.close();
 
     glGenTextures(1, &g_volTexObj);
     // bind 3D texture target
@@ -318,9 +309,9 @@ GLuint initVol3DTex(const char* filename, GLuint w, GLuint h, GLuint d)
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_REPEAT);
     // pixel transfer happens here from client to OpenGL server
     glPixelStorei(GL_UNPACK_ALIGNMENT,1);
-    glTexImage3D(GL_TEXTURE_3D, 0, GL_INTENSITY, w, h, d, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE,data);
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_INTENSITY, w, h, d, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, volumeData.data());
 
-    delete []data;
+    //delete []data;
     cout << "volume texture created" << endl;
     return g_volTexObj;
 }
