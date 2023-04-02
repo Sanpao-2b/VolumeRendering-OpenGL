@@ -1,77 +1,75 @@
 #version 400
-// 杜绝声明未使用的变量，避免bug的产生。
 
-
-in vec3 EntryPoint;
-in vec4 ExitPointCoord;
+in vec3 EntryPoint;     // 进入点（对象空间）
+in vec4 ExitPointCoord; // 出口点（裁剪空间），这是用来算UV坐标的
 
 uniform sampler2D ExitPoints;
 uniform sampler3D VolumeTex;
 uniform sampler1D TransferFunc;  
-uniform float     StepSize;
+uniform float     StepSize; // 以百分比的形式
 uniform vec2      ScreenSize;
+
 layout (location = 0) out vec4 FragColor;
 
 void main()
 {
-    // ExitPointCoord 的坐标是设备规范化坐标
-    // 出现了和纹理坐标有关的问题。
     vec3 exitPoint = texture(ExitPoints, gl_FragCoord.st/ScreenSize).xyz;
-    // that will actually give you clip-space coordinates rather than
-    // normalised device coordinates, since you're not performing the perspective
-    // division which happens during the rasterisation process (between the vertex
-    // shader and fragment shader
-    // vec2 exitFragCoord = (ExitPointCoord.xy / ExitPointCoord.w + 1.0)/2.0;
-    // vec3 exitPoint  = texture(ExitPoints, exitFragCoord).xyz;
+    
     if (EntryPoint == exitPoint)
-    	//background need no raycasting
     	discard;
-    vec3 dir = exitPoint - EntryPoint;
-    float len = length(dir); // the length from front to back is calculated and used to terminate the ray
+
+    vec3 dir = exitPoint - EntryPoint;  
+    float len = length(dir);
     vec3 deltaDir = normalize(dir) * StepSize;
     float deltaDirLen = length(deltaDir);
-    vec3 voxelCoord = EntryPoint;
-    vec4 colorAcum = vec4(0.0); // The dest color
-    float alphaAcum = 0.0;                // The  dest alpha for blending
-    /* 定义颜色查找的坐标 */
+    
+    vec3 voxelCoord = EntryPoint;   // 用于采样3D纹理的纹理坐标初始值
+
+    vec4 bgColor = vec4(1.0, 1.0, 1.0, 0.0); // 背景色
+    vec4 colorAcum = vec4(0.0); 
+    float alphaAcum = 0.0; 
+ 
     float intensity;
     float lengthAcum = 0.0;
-    vec4 colorSample; // The src color 
-    float alphaSample; // The src alpha
-    // backgroundColor
-    vec4 bgColor = vec4(1.0, 1.0, 1.0, 0.0);
- 
+    vec4 colorSample; 
+    float alphaSample; 
+    
+   
     for(int i = 0; i < 1600; i++)
     {
-    	// 获得体数据中的标量值scaler value
-    	intensity =  texture(VolumeTex, voxelCoord).x;
-    	// 查找传输函数中映射后的值
-    	// 依赖性纹理读取  
-    	colorSample = texture(TransferFunc, intensity);
-    	// modulate the value of colorSample.a
-    	// front-to-back integration
+        // 获取体数据
+    	intensity =  texture(VolumeTex, voxelCoord).x;  
+
+        // 转换成RGBA
+    	colorSample = texture(TransferFunc, intensity); 
+    		
+        // 前向混合
     	if (colorSample.a > 0.0) {
-    	    // accomodate for variable sampling rates (base interval defined by mod_compositing.frag)
-    	    colorSample.a = 1.0 - pow(1.0 - colorSample.a, StepSize*200.0f);
+            // 对采样点的alpha进行修正，对其乘以一个衰减因子，使其越靠近视点的部分越不透明，越远离视点的部分越透明
+    	    //colorSample.a = 1.0 - pow(1.0 - colorSample.a, StepSize*200.0f);
+    	    colorSample.a = 1.0 - pow(1.0 - colorSample.a, .1);
     	    colorAcum.rgb += (1.0 - colorAcum.a) * colorSample.rgb * colorSample.a;
     	    colorAcum.a += (1.0 - colorAcum.a) * colorSample.a;
     	}
-    	voxelCoord += deltaDir;
-    	lengthAcum += deltaDirLen;
-    	if (lengthAcum >= len )
-    	{	
+    	
+        voxelCoord += deltaDir;     // 前进一步
+    	lengthAcum += deltaDirLen;  // 累加前进的距离
+    	
+        // 如果前进的距离超过包围盒则与背景色混合
+        if (lengthAcum >= len ){
     	    colorAcum.rgb = colorAcum.rgb*colorAcum.a + (1 - colorAcum.a)*bgColor.rgb;		
-    	    break;  // terminate if opacity > 1 or the ray is outside the volume	
-    	}	
-    	else if (colorAcum.a > 1.0)
-    	{
+    	    break;
+    	}
+        // 如果累加透明度已经超过1，则提前终止
+    	else if (colorAcum.a > 1.0){
     	    colorAcum.a = 1.0;
     	    break;
     	}
     }
+
     FragColor = colorAcum;
-    // for test
-    // FragColor = vec4(EntryPoint, 1.0);
-    // FragColor = vec4(exitPoint, 1.0);
+    // 测试
+    //FragColor = vec4(EntryPoint, 1.0);
+    //FragColor = vec4(exitPoint, 1.0);
    
 }

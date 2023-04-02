@@ -123,12 +123,10 @@ void initVBO()
     // vao like a closure binding 3 buffer object: verlocdat vercoldat and veridxdat
     glBindVertexArray(vao);
     glEnableVertexAttribArray(0); // for vertexloc
-    glEnableVertexAttribArray(1); // for vertexcol
 
     // the vertex location is the same as the vertex color
     glBindBuffer(GL_ARRAY_BUFFER, vertexdat);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (GLfloat *)NULL);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (GLfloat *)NULL);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, veridxdat);
     // glBindVertexArray(0);
     g_vao = vao;
@@ -457,18 +455,19 @@ void linkShader(GLuint shaderPgm, GLuint newVertHandle, GLuint newFragHandle)
 void display()
 {
     glEnable(GL_DEPTH_TEST);
-    // test the gl_error
     GL_ERROR();
-    // render to texture
+    // pass1 绘制包围盒背面，到纹理附件
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, g_frameBuffer);
     glViewport(0, 0, g_winWidth, g_winHeight);
     linkShader(g_programHandle, g_bfVertHandle, g_bfFragHandle);
     glUseProgram(g_programHandle);
-    // cull front face
+    // 剔除正面
     render(GL_FRONT);
     glUseProgram(0);
     GL_ERROR();
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    
+    // pass 2 绘制正面，并计算光线方向，并执行光线投射
     glViewport(0, 0, g_winWidth, g_winHeight);
     linkShader(g_programHandle, g_rcVertHandle, g_rcFragHandle); // 切换着色器程序的两个着色器对象
     GL_ERROR();
