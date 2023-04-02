@@ -17,7 +17,7 @@ using namespace std;
 using glm::mat4;
 using glm::vec3;
 GLuint g_vao;
-GLuint g_programHandle;
+GLuint g_programHandle; // shader program
 GLuint g_winWidth = 400;
 GLuint g_winHeight = 400;
 GLint g_angle = 0;
@@ -44,10 +44,9 @@ int checkForOpenGLError(const char* file, int line)
     glErr = glGetError();
     while(glErr != GL_NO_ERROR)
     {
-	cout << "glError in file " << file
-	     << "@line " << line << gluErrorString(glErr) << endl;
-	retCode = 1;
-	exit(EXIT_FAILURE);
+	    cout << "glError in file " << file << "@line " << line << gluErrorString(glErr) << endl;
+	    retCode = 1;
+	    exit(EXIT_FAILURE);
     }
     return retCode;
 }
@@ -98,7 +97,7 @@ void initVBO()
 	1,5,7,
 	7,3,1,
 	0,2,6,
-        6,4,0,
+    6,4,0,
 	0,1,3,
 	3,2,0,
 	7,5,4,
@@ -308,9 +307,8 @@ GLuint initVol3DTex(const char* filename, GLuint w, GLuint h, GLuint d)
 
 void checkFramebufferStatus()
 {
-    GLenum complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    if (complete != GL_FRAMEBUFFER_COMPLETE)
-    {
+    GLenum result = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (result != GL_FRAMEBUFFER_COMPLETE){
 	    cout << "framebuffer is not complete" << endl;
 	    exit(EXIT_FAILURE);
     }
@@ -327,20 +325,16 @@ void initFrameBuffer(GLuint texObj, GLuint texWidth, GLuint texHeight)
     // attach the texture and the depth buffer to the framebuffer
     glGenFramebuffers(1, &g_frameBuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, g_frameBuffer);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texObj, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texObj, 0); // 颜色附件
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBuffer);// 深度缓冲附件
     checkFramebufferStatus();
     glEnable(GL_DEPTH_TEST);    
 }
 
+// 设置着色器中的uniform变量
 void rcSetUinforms()
 {
-    // setting uniforms such as
-    // ScreenSize 
-    // StepSize
-    // TransferFunc
-    // ExitPoints i.e. the backface, the backface hold the ExitPoints of ray casting
-    // VolumeTex the texture that hold the volume data i.e. head256.raw
+    // 屏幕尺寸
     GLint screenSizeLoc = glGetUniformLocation(g_programHandle, "ScreenSize");
     if (screenSizeLoc >= 0){
 	    glUniform2f(screenSizeLoc, (float)g_winWidth, (float)g_winHeight);
@@ -348,7 +342,8 @@ void rcSetUinforms()
     else{
 	    cout << "ScreenSize " << "is not bind to the uniform" << endl;
     }
-
+    
+    // 步长
     GLint stepSizeLoc = glGetUniformLocation(g_programHandle, "StepSize");
     GL_ERROR();
     if (stepSizeLoc >= 0){
@@ -414,28 +409,31 @@ void initShader()
 void linkShader(GLuint shaderPgm, GLuint newVertHandle, GLuint newFragHandle)
 {
     const GLsizei maxCount = 2;
-    GLsizei count;
     GLuint shaders[maxCount];
+    
+    // 获取目前shader program绑定的着色器个数（count）和着色器对象(shaders)
+    GLsizei count;
     glGetAttachedShaders(shaderPgm, maxCount, &count, shaders);
-    // cout << "get VertHandle: " << shaders[0] << endl;
-    // cout << "get FragHandle: " << shaders[1] << endl;
     GL_ERROR();
+    // 解绑目前绑定的着色器
     for (int i = 0; i < count; i++) {
-	glDetachShader(shaderPgm, shaders[i]);
+	    glDetachShader(shaderPgm, shaders[i]);
     }
-    // Bind index 0 to the shader input variable "VerPos"
+    // 将着色器的输入变量与指定的属性索引绑定
     glBindAttribLocation(shaderPgm, 0, "VerPos");
-    // Bind index 1 to the shader input variable "VerClr"
     glBindAttribLocation(shaderPgm, 1, "VerClr");
     GL_ERROR();
+    
+    // 将新的着色器绑定到着色器程序中
     glAttachShader(shaderPgm,newVertHandle);
     glAttachShader(shaderPgm,newFragHandle);
     GL_ERROR();
+
+    // 重新链接着色器程序对象。
     glLinkProgram(shaderPgm);
-    if (GL_FALSE == checkShaderLinkStatus(shaderPgm))
-    {
-	cerr << "Failed to relink shader program!" << endl;
-	exit(EXIT_FAILURE);
+    if (GL_FALSE == checkShaderLinkStatus(shaderPgm)){
+	    cerr << "Failed to relink shader program!" << endl;
+	    exit(EXIT_FAILURE);
     }
     GL_ERROR();
 }
@@ -472,10 +470,10 @@ void display()
     GL_ERROR();
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, g_winWidth, g_winHeight);
-    linkShader(g_programHandle, g_rcVertHandle, g_rcFragHandle);
+    linkShader(g_programHandle, g_rcVertHandle, g_rcFragHandle); // 切换着色器程序的两个着色器对象
     GL_ERROR();
     glUseProgram(g_programHandle);
-    rcSetUinforms();
+    rcSetUinforms();    // 设置光线投射pass中的shader uniform变量
     GL_ERROR();
     // glUseProgram(g_programHandle);
     // cull back face
@@ -518,28 +516,27 @@ void render(GLenum cullFace)
     GL_ERROR();
     glClearColor(0.2f,0.2f,0.2f,1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    //  transform the box
+    
+    //  MVP uniform
     glm::mat4 projection = glm::perspective(60.0f, (GLfloat)g_winWidth/g_winHeight, 0.1f, 400.f);
-    glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 2.0f),
-    				 glm::vec3(0.0f, 0.0f, 0.0f), 
-    				 glm::vec3(0.0f, 1.0f, 0.0f));
-    glm::mat4 model = mat4(1.0f);
+    glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 model = mat4(1.0f);   // 注意model = M_rot * M_rot * M_trans;
     model *= glm::rotate((float)g_angle, glm::vec3(0.0f, 1.0f, 0.0f));
     // to make the "head256.raw" i.e. the volume data stand up.
     model *= glm::rotate(90.0f, vec3(1.0f, 0.0f, 0.0f));
     model *= glm::translate(glm::vec3(-0.5f, -0.5f, -0.5f)); 
     // notice the multiplication order: reverse order of transform
     glm::mat4 mvp = projection * view * model;
+    
     GLuint mvpIdx = glGetUniformLocation(g_programHandle, "MVP");
-    if (mvpIdx >= 0)
-    {
+    if (mvpIdx >= 0){
     	glUniformMatrix4fv(mvpIdx, 1, GL_FALSE, &mvp[0][0]);
     }
-    else
-    {
+    else{
     	cerr << "can't get the MVP" << endl;
     }
     GL_ERROR();
+    
     drawBox(cullFace);
     GL_ERROR();
     // glutWireTeapot(0.5);
@@ -549,6 +546,7 @@ void rotateDisplay()
     g_angle = (g_angle + 1) % 360;
     glutPostRedisplay();
 }
+
 void reshape(int w, int h)
 {
     g_winWidth = w;
@@ -561,9 +559,9 @@ void keyboard(unsigned char key, int x, int y)
 {
     switch (key)
     {
-    case '\x1B':
-	exit(EXIT_SUCCESS);
-	break;
+        case '\x1B':
+	    exit(EXIT_SUCCESS);
+	    break;
     }
 }
 

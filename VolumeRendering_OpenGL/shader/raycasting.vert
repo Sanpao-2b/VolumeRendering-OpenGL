@@ -1,6 +1,4 @@
 #version 400
-
-
 layout (location = 0) in vec3 VerPos;
 // have to use this variable!!!, or it will be very hard to debug for AMD video card
 layout (location = 1) in vec3 VerClr;  
