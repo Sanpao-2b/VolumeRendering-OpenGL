@@ -18,8 +18,8 @@ using glm::mat4;
 using glm::vec3;
 GLuint g_vao;
 GLuint g_programHandle; // shader program
-GLuint g_winWidth = 400;
-GLuint g_winHeight = 400;
+GLuint g_winWidth = 1000;
+GLuint g_winHeight = 1000;
 GLint g_angle = 0;
 GLuint g_frameBuffer;
 // transfer function
@@ -61,15 +61,13 @@ GLuint initVol3DTex(const char* filename, GLuint width, GLuint height, GLuint de
 void render(GLenum cullFace);
 void init()
 {
-    g_texWidth = g_winWidth;
-    g_texHeight = g_winHeight;
     initVBO();
     initShader();
     g_tffTexObj = initTFF1DTex("../tff.dat");
-    g_bfTexObj = initFace2DTex(g_texWidth, g_texHeight);
+    g_bfTexObj = initFace2DTex(g_winWidth, g_winHeight);
     g_volTexObj = initVol3DTex("../head256.raw", 256, 256, 225);
     GL_ERROR();
-    initFrameBuffer(g_bfTexObj, g_texWidth, g_texHeight);
+    initFrameBuffer(g_bfTexObj, g_winWidth, g_winHeight);
     GL_ERROR();
 }
 // init the vertex buffer object
@@ -85,14 +83,7 @@ void initVBO()
 	1.0, 1.0, 0.0,
 	1.0, 1.0, 1.0
     };
-// draw the six faces of the boundbox by drawwing triangles
-// draw it contra-clockwise
-// front: 1 5 7 3
-// back: 0 2 6 4
-// left：0 1 3 2
-// right:7 5 4 6    
-// up: 2 3 7 6
-// down: 1 0 4 5
+
     GLuint indices[36] = {
 	1,5,7,
 	7,3,1,
@@ -333,7 +324,7 @@ void initFrameBuffer(GLuint texObj, GLuint texWidth, GLuint texHeight)
 void rcSetUinforms()
 {
     // 屏幕尺寸
-    GLint screenSizeLoc = glGetUniformLocation(g_programHandle, "ScreenSize");
+    GLint screenSizeLoc = glGetUniformLocation(g_programHandle, "u_Resolution");
     if (screenSizeLoc >= 0){
 	    glUniform2f(screenSizeLoc, (float)g_winWidth, (float)g_winHeight);
     }
@@ -342,7 +333,7 @@ void rcSetUinforms()
     }
     
     // 步长
-    GLint stepSizeLoc = glGetUniformLocation(g_programHandle, "StepSize");
+    GLint stepSizeLoc = glGetUniformLocation(g_programHandle, "u_StepSize");
     GL_ERROR();
     if (stepSizeLoc >= 0){
 	    glUniform1f(stepSizeLoc, g_stepSize);
@@ -353,7 +344,7 @@ void rcSetUinforms()
     GL_ERROR();
     
     // 转换函数 1D texture
-    GLint transferFuncLoc = glGetUniformLocation(g_programHandle, "TransferFunc");
+    GLint transferFuncLoc = glGetUniformLocation(g_programHandle, "u_TransferFunc");
     if (transferFuncLoc >= 0){
 	    glUniform1i(transferFuncLoc, 0);            // 设置iniform sampler采样纹理单元0
 	    glActiveTexture(GL_TEXTURE0);               // 激活纹理单元0
@@ -365,7 +356,7 @@ void rcSetUinforms()
     GL_ERROR();    
     
     // 背面（作为出口点） 2D texture 
-    GLint backFaceLoc = glGetUniformLocation(g_programHandle, "ExitPoints");
+    GLint backFaceLoc = glGetUniformLocation(g_programHandle, "u_ExitPoints");
     if (backFaceLoc >= 0){
 	    glUniform1i(backFaceLoc, 1);
 	    glActiveTexture(GL_TEXTURE1);
@@ -377,7 +368,7 @@ void rcSetUinforms()
     GL_ERROR();
 
     // 体数据 3D texture
-    GLint volumeLoc = glGetUniformLocation(g_programHandle, "VolumeTex");
+    GLint volumeLoc = glGetUniformLocation(g_programHandle, "u_VolumeTex");
     if (volumeLoc >= 0){
 	    glUniform1i(volumeLoc, 2);
 	    glActiveTexture(GL_TEXTURE2);
@@ -418,8 +409,8 @@ void linkShader(GLuint shaderPgm, GLuint newVertHandle, GLuint newFragHandle)
 	    glDetachShader(shaderPgm, shaders[i]);
     }
     // 将着色器的输入变量与指定的属性索引绑定
-    glBindAttribLocation(shaderPgm, 0, "VerPos");
-    glBindAttribLocation(shaderPgm, 1, "VerClr");
+    //glBindAttribLocation(shaderPgm, 0, "VerPos");
+    //glBindAttribLocation(shaderPgm, 1, "VerClr");
     GL_ERROR();
     
     // 将新的着色器绑定到着色器程序中
@@ -550,8 +541,6 @@ void reshape(int w, int h)
 {
     g_winWidth = w;
     g_winHeight = h;
-    g_texWidth = w;
-    g_texHeight = h;
 }
 
 void keyboard(unsigned char key, int x, int y)
@@ -568,7 +557,7 @@ int main(int argc, char** argv)
 {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);  // 双缓冲、颜色空间、深度缓冲on
-    glutInitWindowSize(400, 400);
+    glutInitWindowSize(g_winWidth, g_winHeight);
     glutCreateWindow("GLUT Test");
     GLenum err = glewInit();
     if (GLEW_OK != err){
